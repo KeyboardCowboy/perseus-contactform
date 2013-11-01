@@ -12,8 +12,12 @@ use Perseus\Services\Form\Item;
 use Perseus\Services\PhpMail;
 
 class ContactForm extends Form {
-  public $mail_template = 'contactform/email';
-  public $from = 'you@example.com';
+  public $to            = 'you@example.com';
+
+  public $mail_template = '';
+
+  public $mail_success  = 'Your message has been sent.';
+  public $mail_fail     = 'Sorry, there was an error delivering your message.';
 
   // Constructor
   public function __construct(array $settings = array()) {
@@ -21,57 +25,40 @@ class ContactForm extends Form {
 
     // Build the From field
     $from = new Item\Text('from');
-    $from->label = 'Your Name';
+    $from->label    = 'Your Name';
     $from->required = TRUE;
-    $from->wrap = TRUE;
-    $from->weight = 1;
+    $from->wrap     = TRUE;
+    $from->weight   = 0;
     $this->addChild('from', $from);
 
     // Build the email field
     $mail = new Item\Text\Email('mail');
     $mail->required = TRUE;
-    $mail->wrap = TRUE;
-    $mail->weight = 2;
+    $mail->wrap     = TRUE;
+    $mail->weight   = 5;
     $this->addChild('mail', $mail);
 
     // Build the subject field.
     $sub = new Item\Text('subject');
-    $sub->label = 'Subject';
+    $sub->label    = 'Subject';
     $sub->required = TRUE;
-    $sub->weight = 3;
-    $sub->wrap = TRUE;
+    $sub->weight   = 10;
+    $sub->wrap     = TRUE;
     $this->addChild('subject', $sub);
 
     // Build the message field.
-    $message = new Item\Textarea('message', array(
-      'label' => 'Your Message',
-      'weight' => 4,
-      'required' => TRUE,
-    ));
+    $message = new Item\Textarea('message');
+    $message->label    = 'Your Message';
+    $message->weight   = 15;
+    $message->required = TRUE;
     $this->addChild('message', $message);
 
-    $select = new Item\Select('choose', array(
-      'label' => 'Choose One',
-      'weight' => 5,
-      'options' => array(
-        'one' => 'Number one',
-        'two' => 'Number Two',
-        'three' => 'Number THree',
-      ),
-      'wrap' => TRUE,
-    ));
-    $this->addChild('select', $select);
-
     // Build the Submit button
-    $submit = new Item\Submit('op', array(
-      'value' => 'Send',
-      'weight' => 10,
-      'wrap' => TRUE,
-    ));
+    $submit = new Item\Submit('op');
+    $submit->default_value  = 'Send';
+    $submit->weight         = 100;
+    $submit->wrap           = TRUE;
     $this->addChild('submit', $submit);
-
-    // Run the validators and submittors.
-    $this->executeForm();
   }
 
   // Validate the form
@@ -81,17 +68,20 @@ class ContactForm extends Form {
 
   // Submit the form
   public function submit() {
+    parent::submit();
     global $perseus;
 
-    parent::submit();
     $mail = new PhpMail();
     $mail->from($this->data['mail'], $this->data['from']);
-    $mail->addRecipient($this->from);
+    $mail->addRecipient($this->to);
     $mail->subject($this->data['subject']);
 
     // Build the body.
     $args = array(
-      'content' => $this->data['message'],
+      'from'    => $this->data['from'],
+      'mail'    => $this->data['mail'],
+      'subject' => $this->data['subject'],
+      'message' => $this->data['message'],
     );
     $body = $perseus->theme($this->mail_template, $args);
     if (!$body) {
@@ -99,11 +89,12 @@ class ContactForm extends Form {
     }
     $mail->body($body);
 
+    // Send the mail.
     if ($mail->send()) {
-      System::setMessage('Mail sent!');
+      System::setMessage($this->mail_success);
     }
     else {
-      System::setMessage('Error sending mail.', SYSTEM_ERROR);
+      System::setMessage($this->mail_fail, SYSTEM_ERROR);
     }
   }
 }
